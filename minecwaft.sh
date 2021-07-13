@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-MINUTES=10
+CRON_PATTERN="*/10 * * * *"
 
 log() {
   echo -e "\e[1m\e[93m * $*\e[39m\e[0m"
@@ -8,6 +8,15 @@ log() {
 
 err() {
   echo -e "\e[1m\e[31m ! $*\e[39m\e[0m"
+}
+
+usage() {
+  echo "Crontab auto-backup helper using git
+Usage: $0 [-h] [-a] [-r] [-p PATTERN] [PATH]
+  -h            Show this screen
+  -a            Add the current directory as a backup entry
+  -r            Remove the current directory as a backup entry
+  -p            Specify a custom cron pattern (default: $CRON_PATTERN)"
 }
 
 assert_deps() {
@@ -26,19 +35,32 @@ source_config() {
   source "$CONFIG_PATH"
 }
 
-append_crontab_backup_script() {
+is_path_in_crontab() {
+  local path
   local cron
+
+  path="$1"
+  cron="$(crontab -l 2> /dev/null)"
+
+  if [[ "$cron" == *"$1"* ]]
+  then
+    echo "true"
+  else
+    echo "false"
+  fi
+}
+
+append_crontab_backup_script() {
   local command
   local pwd
   local tmpfile
 
   pwd="$(pwd)"
-  cron="$(crontab -l 2> /dev/null)"
-  command="*/$MINUTES * * * * cd \"$pwd\" && git add . && git commit -sam \"\$(date)\"; git push"
+  command="$CRON_PATTERN minecwaft '$pwd'"
 
-  if [[ "$cron" == *"$pwd"* ]]
+  if [[ ! $(is_path_in_crontab "$pwd") ]]
   then
-    err "Entry already exists in crontab"
+    err "Entry does not exist in crontab"
     exit 1
   fi
 
@@ -65,15 +87,13 @@ append_crontab_backup_script() {
 }
 
 remove_crontab_backup_script() {
-  local cron
   local command
   local pwd
   local tmpfile
 
   pwd="$(pwd)"
-  cron="$(crontab -l 2> /dev/null)"
 
-  if [[ "$cron" != *"\"$pwd\""* ]]
+  if [[ ! $(is_path_in_crontab "$pwd") ]]
   then
     err "Entry does not exist in crontab"
     exit 1
@@ -90,17 +110,31 @@ remove_crontab_backup_script() {
   log "Removed entry for: $pwd"
 }
 
-usage() {
-  echo "Minecraft world crontab auto-backup creator using git
-Usage: $0 [-h] [-a] [-r] [-m MINUTES]
-  -h            Show this screen
-  -a            Add the current directory as a backup entry
-  -r            Remove the current directory as a backup entry
-  -m            Specify time between backups in minutes [1-59] (default: $MINUTES)"
+update() {
+  local path
+  path="$1"
+
+  if [[ ! $(is_path_in_crontab "$pwd") ]]
+  then
+    err "Entry does not exist in crontab"
+    exit 1
+  fi
+
+  if ! cd "$path"
+  then
+    err "Failed to change directories to $path"
+    exit 1
+  fi
+
+  git add .
+  git commit -sam "$(date)"
+  git push
+
+  log "Pushed successfully"
 }
 
 parse_options() {
-  while getopts ":hard:" opt
+  while getopts ":harp:" opt
   do
     case "$opt" in
     h)
@@ -115,8 +149,8 @@ parse_options() {
       remove_crontab_backup_script
       exit 0
       ;;
-    d)
-      MINUTES="$OPTARG"
+    p)
+      CRON_PATTERN="$OPTARG"
       ;;
     *)
       usage
@@ -128,3 +162,5 @@ parse_options() {
 
 assert_deps
 parse_options "$@"
+
+update "${1:-.}"
