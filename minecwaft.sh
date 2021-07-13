@@ -35,21 +35,6 @@ source_config() {
   source "$CONFIG_PATH"
 }
 
-is_path_in_crontab() {
-  local path
-  local cron
-
-  path="$1"
-  cron="$(crontab -l 2> /dev/null)"
-
-  if [[ "$cron" == *"$1"* ]]
-  then
-    echo "true"
-  else
-    echo "false"
-  fi
-}
-
 append_crontab_backup_script() {
   local command
   local pwd
@@ -58,9 +43,9 @@ append_crontab_backup_script() {
   pwd="$(pwd)"
   command="$CRON_PATTERN minecwaft '$pwd'"
 
-  if [[ ! $(is_path_in_crontab "$pwd") ]]
+  if crontab -l 2> /dev/null | grep -q "$pwd"
   then
-    err "Entry does not exist in crontab"
+    err "Entry already exists in crontab"
     exit 1
   fi
 
@@ -93,7 +78,7 @@ remove_crontab_backup_script() {
 
   pwd="$(pwd)"
 
-  if [[ ! $(is_path_in_crontab "$pwd") ]]
+  if ! crontab -l 2> /dev/null | grep -q "$pwd"
   then
     err "Entry does not exist in crontab"
     exit 1
@@ -114,7 +99,7 @@ update() {
   local path
   path="$1"
 
-  if [[ ! $(is_path_in_crontab "$pwd") ]]
+  if ! crontab -l 2> /dev/null | grep -q "$pwd"
   then
     err "Entry does not exist in crontab"
     exit 1
