@@ -20,7 +20,7 @@ Usage: $0 [-h] [-a] [-r] [-p PATTERN] [PATH]
 }
 
 assert_deps() {
-  for dep in git gh mktemp
+  for dep in git gh mktemp crontab sed
   do
     if ! command -v "$dep" &> /dev/null
     then
