@@ -60,12 +60,13 @@ append_crontab_backup_script() {
   log "Added entry to crontab"
 
   git init
-
-  gh repo create
-
+  git branch -m main
   git add .
   git commit -sam "$(date)"
-  git branch -m main
+
+  log "Select the option to push an existing repository!"
+  gh repo create
+
   git push -u origin main
 
   log "Setup complete for: $pwd"
@@ -113,7 +114,7 @@ update() {
 
   git add .
   git commit -sam "$(date)"
-  git push
+  git push -u origin main
 
   log "Pushed successfully"
 }
